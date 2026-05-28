@@ -1,0 +1,10 @@
+( START )
+( 5 A MEM )
+( 3 B MEM )
+@# invalido aqui
+( A B + )
+( A B - )
+( END )
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*

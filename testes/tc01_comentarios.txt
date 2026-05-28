@@ -1,0 +1,13 @@
+*{ CRITERIO: Comentarios em linha inteira (inicio do arquivo) }*
+( START )
+*{ Comentario de linha inteira no inicio }*
+( 5 A MEM )
+( 3 B MEM )
+( A B + ) *{ Comentario no fim da linha }*
+*{ Comentario
+   multi-linha
+   no meio do programa }*
+( A B * )
+( A *{ comentario entre tokens }* B - )
+*{ Comentario antes do END }*
+( END )
