@@ -208,3 +208,157 @@ TabelaSimbolos construirTabelaSimbolos(NoAST* arvore, vector<string>& errosSem) 
 
     return ts;
 }
+
+analisadorsemantico.cpp
+
+
+// ============================================================
+// FUNÇÃO 3: verificarTipos
+// Inferência e validação de tipos — retorna mapa nó→tipo
+// ============================================================
+map<NoAST*, string> verificarTipos(
+    NoAST* arvore,
+    TabelaSimbolos& ts,
+    vector<string>& errosSem)
+{
+    map<NoAST*, string> tipos;
+
+    function<string(NoAST*)> inferir = [&](NoAST* no) -> string {
+        if (!no) return "";
+
+        // --- Literais ---
+        if (no->tipo == "NUMERO" || no->tipo == "BOOLEANO") {
+            string t = inferirTipoLiteral(no->valor);
+            tipos[no] = t;
+            return t;
+        }
+
+        // --- Variável ---
+        if (no->tipo == "VARIAVEL") {
+            string t = ts.getTipo(no->valor);
+            tipos[no] = t.empty() ? "?" : t;
+            return tipos[no];
+        }
+
+        // --- Operadores aritméticos / relacionais ---
+        if (no->tipo == "OP_ARITMETICO" || no->tipo == "OP_RELACIONAL") {
+            if (no->filhos.size() < 2) {
+                tipos[no] = "?";
+                return "?";
+            }
+            string tEsq = inferir(no->filhos[0]);
+            string tDir = inferir(no->filhos[1]);
+            string tRes = tipoResultadoOp(no->valor, tEsq, tDir, no->linha, errosSem);
+            tipos[no] = tRes;
+            return tRes;
+        }
+
+        // --- IF ---
+        if (no->tipo == "KEY_IF") {
+            if (no->filhos.size() < 2) { tipos[no] = "?"; return "?"; }
+            string tCond = inferir(no->filhos[0]);
+            string tAcao = inferir(no->filhos[1]);
+            if (tCond != "bool") {
+                errosSem.push_back(
+                    "[ERRO SEMANTICO] Linha " + to_string(no->linha) +
+                    ": Condicao do IF deve ser do tipo 'bool', mas e '" + tCond + "'."
+                );
+            }
+            tipos[no] = tAcao;
+            return tAcao;
+        }
+
+        // --- WHILE ---
+        if (no->tipo == "KEY_WHILE") {
+            if (no->filhos.size() < 2) { tipos[no] = "?"; return "?"; }
+            string tCond = inferir(no->filhos[0]);
+            string tAcao = inferir(no->filhos[1]);
+            if (tCond != "bool") {
+                errosSem.push_back(
+                    "[ERRO SEMANTICO] Linha " + to_string(no->linha) +
+                    ": Condicao do WHILE deve ser do tipo 'bool', mas e '" + tCond + "'."
+                );
+            }
+            tipos[no] = tAcao;
+            return tAcao;
+        }
+
+        // --- MEM: (V MEM) armazena e infere tipo da variável ---
+        if (no->tipo == "KEY_MEM" && no->filhos.size() == 2) {
+            string tValor = inferir(no->filhos[0]);
+            NoAST* destino = no->filhos[1];
+
+            if (destino && destino->tipo == "VARIAVEL") {
+                string tipoAtual = ts.getTipo(destino->valor);
+                if (!tipoAtual.empty() && tipoAtual != tValor) {
+                    errosSem.push_back(
+                        "[ERRO SEMANTICO] Linha " + to_string(no->linha) +
+                        ": Variavel '" + destino->valor +
+                        "' foi definida como '" + tipoAtual +
+                        "' mas esta sendo atribuida com valor do tipo '" + tValor + "'."
+                    );
+                } else {
+                    ts.setTipo(destino->valor, tValor);
+                    tipos[destino] = tValor;
+                }
+            }
+
+            tipos[no] = tValor;
+            return tValor;
+        }
+
+        // --- RES ---
+        if (no->tipo == "KEY_RES") {
+            // Tipo de RES é desconhecido estaticamente (depende de qual linha retorna)
+            // Assumimos "real" para compatibilidade (o buffer interno usa double)
+            tipos[no] = "real";
+            return "real";
+        }
+
+        // --- Raiz / outros ---
+        for (auto filho : no->filhos) inferir(filho);
+        tipos[no] = "";
+        return "";
+    };
+
+    for (auto filho : arvore->filhos)
+        inferir(filho);
+
+    return tipos;
+}
+
+// ============================================================
+// FUNÇÃO 4: gerarArvoreAtribuida
+// Anota tipoSemantico em cada nó e salva o arquivo
+// ============================================================
+NoAST* gerarArvoreAtribuida(
+    NoAST* arvore,
+    TabelaSimbolos& ts,
+    map<NoAST*, string>& tipos)
+{
+    (void)ts;    // ts disponível para extensões futuras
+    (void)tipos; // usado abaixo via captura por referência no lambda
+
+    // Anota tipoSemantico em cada nó que possui entrada no mapa
+    function<void(NoAST*)> anotar = [&](NoAST* no) {
+        if (!no) return;
+        if (tipos.count(no)) no->tipoSemantico = tipos[no];
+        for (auto filho : no->filhos) anotar(filho);
+    };
+
+    anotar(arvore);
+
+    // Salva a árvore atribuída em Markdown
+    ofstream out("arvore_atribuida.md");
+    if (out.is_open()) {
+        out << "# Árvore Sintática Atribuída\n\n";
+        out << "Formato: `[tipo_sintatico:tipo_semantico] valor`\n\n";
+        out << "```\n";
+        arvore->imprimirArvoreAtribuida(out);
+        out << "```\n";
+        out.close();
+        cout << "[ARTEFATO] Arvore atribuida salva em: arvore_atribuida.md" << endl;
+    }
+
+    return arvore;
+}

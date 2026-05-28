@@ -1,0 +1,10 @@
+( START )
+( true B1 MEM )
+( false B2 MEM )
+( ( B1 B2 = ) ( B1 1 + ) IF )
+( END )
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*

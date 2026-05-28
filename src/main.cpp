@@ -106,7 +106,28 @@ int main(int argc, char* argv[]) {
     cout << "[FASE 3A] " << ts.tabela.size() << " simbolo(s) registrado(s)." << endl;
 
     // ──────────────────────────────────────────────
+    // FASE 3B: verificarTipos
+    // ──────────────────────────────────────────────
+    cout << "\n[FASE 3B] Verificando tipos..." << endl;
+    auto tipos = verificarTipos(arvore, ts, errosSem);
+    cout << "[FASE 3B] Verificacao concluida." << endl;
 
+    // ──────────────────────────────────────────────
+    // FASE 3C: gerarArvoreAtribuida
+    // ──────────────────────────────────────────────
+    cout << "\n[FASE 3C] Gerando arvore sintática atribuida..." << endl;
+    NoAST* arvoreAtribuida = gerarArvoreAtribuida(arvore, ts, tipos);
+    cout << "[FASE 3C] Arvore atribuida gerada." << endl;
+
+    // Salva tabela de símbolos
+    ts.salvarMarkdown("tabela_simbolos.md");
+    ts.salvarJSON("tabela_simbolos.json");
+
+    // Salva relatório de erros (mesmo que vazio)
+    salvarRelatorioErros(errosLex, errosSin, errosSem, arquivoCodigo);
+
+    // ──────────────────────────────────────────────
+    
 
     return 0;
 }
