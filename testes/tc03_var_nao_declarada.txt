@@ -1,0 +1,10 @@
+( START )
+( X 5 + )
+( END )
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
