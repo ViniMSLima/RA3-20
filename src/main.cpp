@@ -127,7 +127,44 @@ int main(int argc, char* argv[]) {
     salvarRelatorioErros(errosLex, errosSin, errosSem, arquivoCodigo);
 
     // ──────────────────────────────────────────────
-    
+    // Verifica se pode gerar Assembly
+    // ──────────────────────────────────────────────
+    bool semErros = errosLex.empty() && errosSin.empty() && errosSem.empty();
+
+    if (!semErros) {
+        cout << "\n=============================================" << endl;
+        cout << " COMPILACAO COM ERROS — ASSEMBLY NAO GERADO" << endl;
+        cout << "=============================================" << endl;
+
+        int total = (int)(errosLex.size() + errosSin.size() + errosSem.size());
+        cout << "Total de erros: " << total << endl;
+        cout << "  Lexicos:    " << errosLex.size() << endl;
+        cout << "  Sintaticos: " << errosSin.size() << endl;
+        cout << "  Semanticos: " << errosSem.size() << endl;
+        cout << "\nConsulte 'erros_semanticos.md' para detalhes." << endl;
+        return 1;
+    }
+
+    // ──────────────────────────────────────────────
+    // FASE 4: gerarAssembly (somente se sem erros)
+    // ──────────────────────────────────────────────
+    cout << "\n[FASE 4] Gerando codigo Assembly ARMv7..." << endl;
+    gerarAssembly(arvoreAtribuida, "saida.s");
+
+    // ──────────────────────────────────────────────
+    // Resumo final
+    // ──────────────────────────────────────────────
+    cout << "\n=============================================" << endl;
+    cout << " COMPILACAO CONCLUIDA COM SUCESSO!" << endl;
+    cout << "=============================================" << endl;
+    cout << "Artefatos gerados:" << endl;
+    cout << "  - arvore_sintatica.txt  (AST base)" << endl;
+    cout << "  - arvore_atribuida.md   (AST com tipos)" << endl;
+    cout << "  - tabela_simbolos.md    (tabela de simbolos)" << endl;
+    cout << "  - tabela_simbolos.json  (tabela JSON)" << endl;
+    cout << "  - erros_semanticos.md   (relatorio de erros)" << endl;
+    cout << "  - saida.s               (codigo Assembly ARMv7)" << endl;
+
 
     return 0;
 }

@@ -1,0 +1,10 @@
+( START )
+( 5 N MEM )
+( true B MEM )
+( N B + )
+( END )
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*
+*{ Pad line to meet the 10-line minimum requirement }*

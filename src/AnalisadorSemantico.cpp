@@ -362,3 +362,261 @@ NoAST* gerarArvoreAtribuida(
 
     return arvore;
 }
+
+// ============================================================
+// FUNÇÃO 5: gerarAssembly
+// Gera código ARMv7 — SOMENTE quando sem erros
+// ============================================================
+
+// Estado interno do gerador
+static int    s_labelCount  = 0;
+static int    s_linhaAtual  = 0;
+static ofstream s_saida;
+static map<string, double> s_literais;
+static map<string, int>    s_memorias;
+
+static string criarLabel(const string& prefixo) {
+    return prefixo + "_" + to_string(s_labelCount++);
+}
+
+static void gerarCodigo(NoAST* no);  // forward declaration
+
+static void gerarCodigo(NoAST* no) {
+    if (!no) return;
+
+    // --- NÚMERO ---
+    if (no->tipo == "NUMERO") {
+        string lab = "lit_" + to_string(s_literais.size());
+        s_literais[lab] = stod(no->valor);
+        s_saida << "    LDR R0, =" << lab << "\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0}\n";
+    }
+    // --- BOOLEANO ---
+    else if (no->tipo == "BOOLEANO") {
+        string lab = (no->valor == "true") ? "lit_ONE" : "lit_ZERO";
+        s_saida << "    LDR R0, =" << lab << "\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0}\n";
+    }
+    // --- VARIÁVEL (leitura) ---
+    else if (no->tipo == "VARIAVEL") {
+        s_memorias[no->valor] = 1;
+        s_saida << "    LDR R0, =var_" << no->valor << "\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0}\n";
+    }
+    // --- OPERADORES ARITMÉTICOS ---
+    else if (no->tipo == "OP_ARITMETICO") {
+        gerarCodigo(no->filhos[0]);
+        gerarCodigo(no->filhos[1]);
+        s_saida << "    VPOP {D1} @ Segundo operando\n";
+        s_saida << "    VPOP {D0} @ Primeiro operando\n";
+
+        const string& op = no->valor;
+
+        if (op == "+") {
+            s_saida << "    VADD.F64 D0, D0, D1\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "-") {
+            s_saida << "    VSUB.F64 D0, D0, D1\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "*") {
+            s_saida << "    VMUL.F64 D0, D0, D1\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "|") {
+            // Divisão real
+            s_saida << "    VDIV.F64 D0, D0, D1\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "/") {
+            // Divisão inteira
+            s_saida << "    VCVT.S32.F64 S0, D0 @ D0 -> int\n";
+            s_saida << "    VCVT.S32.F64 S2, D1 @ D1 -> int\n";
+            s_saida << "    VMOV R0, S0\n";
+            s_saida << "    VMOV R1, S2\n";
+            s_saida << "    SDIV R0, R0, R1      @ divisao inteira\n";
+            s_saida << "    VMOV S0, R0\n";
+            s_saida << "    VCVT.F64.S32 D0, S0  @ resultado -> double\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "%") {
+            // Resto inteiro: rem = dividendo - (dividendo/divisor)*divisor
+            s_saida << "    VCVT.S32.F64 S0, D0  @ dividendo -> int\n";
+            s_saida << "    VCVT.S32.F64 S2, D1  @ divisor -> int\n";
+            s_saida << "    VMOV R0, S0\n";
+            s_saida << "    VMOV R1, S2\n";
+            s_saida << "    SDIV R2, R0, R1      @ quociente\n";
+            s_saida << "    MUL  R3, R2, R1      @ quociente * divisor\n";
+            s_saida << "    SUB  R0, R0, R3      @ resto\n";
+            s_saida << "    VMOV S0, R0\n";
+            s_saida << "    VCVT.F64.S32 D0, S0  @ resto -> double\n";
+            s_saida << "    VPUSH {D0}\n";
+        } else if (op == "^") {
+            // Potenciação por loop
+            string lLoop = criarLabel("L_POW_LOOP");
+            string lEnd  = criarLabel("L_POW_END");
+            s_saida << "    VCVT.S32.F64 S4, D1  @ expoente -> int\n";
+            s_saida << "    VMOV R0, S4           @ R0 = contador\n";
+            s_saida << "    LDR R1, =lit_ONE\n";
+            s_saida << "    VLDR.64 D2, [R1]      @ D2 = acumulador (1.0)\n";
+            s_saida << lLoop << ":\n";
+            s_saida << "    CMP R0, #0\n";
+            s_saida << "    BLE " << lEnd << "\n";
+            s_saida << "    VMUL.F64 D2, D2, D0  @ acumulador *= base\n";
+            s_saida << "    SUB R0, R0, #1\n";
+            s_saida << "    B " << lLoop << "\n";
+            s_saida << lEnd << ":\n";
+            s_saida << "    VPUSH {D2}\n";
+        }
+    }
+    // --- OPERADORES RELACIONAIS ---
+    else if (no->tipo == "OP_RELACIONAL") {
+        gerarCodigo(no->filhos[0]);
+        gerarCodigo(no->filhos[1]);
+        s_saida << "    VPOP {D1}\n";
+        s_saida << "    VPOP {D0}\n";
+        s_saida << "    VCMP.F64 D0, D1\n";
+        s_saida << "    VMRS APSR_nzcv, FPSCR\n";
+
+        string lTrue = criarLabel("L_REL_TRUE");
+        string lFim  = criarLabel("L_REL_END");
+
+        if      (no->valor == ">") s_saida << "    BGT " << lTrue << "\n";
+        else if (no->valor == "<") s_saida << "    BLT " << lTrue << "\n";
+        else if (no->valor == "=") s_saida << "    BEQ " << lTrue << "\n";
+
+        s_saida << "    LDR R0, =lit_ZERO\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0}           @ falso: 0.0\n";
+        s_saida << "    B " << lFim << "\n";
+        s_saida << lTrue << ":\n";
+        s_saida << "    LDR R0, =lit_ONE\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0}           @ verdadeiro: 1.0\n";
+        s_saida << lFim << ":\n";
+    }
+    // --- IF ---
+    else if (no->tipo == "KEY_IF") {
+        string lFim = criarLabel("L_END_IF");
+
+        gerarCodigo(no->filhos[0]);           // condição
+        s_saida << "    VPOP {D1} @ Resultado da condicao\n";
+        s_saida << "    LDR R0, =lit_ZERO\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VCMP.F64 D1, D0\n";
+        s_saida << "    VMRS APSR_nzcv, FPSCR\n";
+        s_saida << "    BEQ " << lFim << " @ Se falso, pula acao\n";
+
+        gerarCodigo(no->filhos[1]);           // ação
+        s_saida << "    VPOP {D0} @ Descarta retorno da acao\n";
+
+        s_saida << lFim << ":\n";
+        s_saida << "    LDR R0, =lit_ZERO\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0} @ Valor de retorno do IF\n";
+    }
+    // --- WHILE ---
+    else if (no->tipo == "KEY_WHILE") {
+        string lStart = criarLabel("L_START_WHILE");
+        string lEnd   = criarLabel("L_END_WHILE");
+
+        s_saida << lStart << ":\n";
+        gerarCodigo(no->filhos[0]);           // condição
+        s_saida << "    VPOP {D1} @ Resultado da condicao\n";
+        s_saida << "    LDR R0, =lit_ZERO\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VCMP.F64 D1, D0\n";
+        s_saida << "    VMRS APSR_nzcv, FPSCR\n";
+        s_saida << "    BEQ " << lEnd << " @ Se falso, sai do laco\n";
+
+        gerarCodigo(no->filhos[1]);           // ação
+        s_saida << "    VPOP {D0} @ Descarta retorno (evita acumulo na pilha)\n";
+        s_saida << "    B " << lStart << " @ Reinicia o laco\n";
+        s_saida << lEnd << ":\n";
+
+        s_saida << "    LDR R0, =lit_ZERO\n";
+        s_saida << "    VLDR.64 D0, [R0]\n";
+        s_saida << "    VPUSH {D0} @ Valor de retorno do WHILE\n";
+    }
+    // --- MEM (armazenamento) ---
+    else if (no->tipo == "KEY_MEM" && no->filhos.size() == 2) {
+        string var = no->filhos[1]->valor;
+        s_memorias[var] = 1;
+
+        gerarCodigo(no->filhos[0]);           // computa o valor
+        s_saida << "    VPOP {D0} @ Pega o valor computado\n";
+        s_saida << "    LDR R0, =var_" << var << "\n";
+        s_saida << "    VSTR.64 D0, [R0] @ Armazena em " << var << "\n";
+        s_saida << "    VPUSH {D0} @ Devolve para balancear a pilha\n";
+    }
+    // --- RES ---
+    else if (no->tipo == "KEY_RES" && !no->filhos.empty()) {
+        int n    = stoi(no->filhos[0]->valor);
+        int alvo = s_linhaAtual - n;
+
+        if (alvo < 0) {
+            s_saida << "    LDR R0, =lit_ZERO @ RES fora do intervalo\n";
+            s_saida << "    VLDR.64 D0, [R0]\n";
+        } else {
+            s_saida << "    LDR R0, =buffer_resultados\n";
+            s_saida << "    MOV R1, #" << (alvo * 8) << " @ Offset da linha " << alvo << "\n";
+            s_saida << "    ADD R0, R0, R1\n";
+            s_saida << "    VLDR.64 D0, [R0]\n";
+        }
+        s_saida << "    VPUSH {D0}\n";
+    }
+}
+
+void gerarAssembly(NoAST* arvoreAtribuida, const string& nomeArquivo) {
+    // Reseta estado
+    s_labelCount = 0;
+    s_linhaAtual = 0;
+    s_literais.clear();
+    s_memorias.clear();
+
+    s_saida.open(nomeArquivo);
+    if (!s_saida.is_open()) {
+        cerr << "[ERRO] Nao foi possivel criar o arquivo Assembly: " << nomeArquivo << endl;
+        return;
+    }
+
+    // Constantes padrão
+    s_literais["lit_ZERO"] = 0.0;
+    s_literais["lit_ONE"]  = 1.0;
+
+    // Cabeçalho ARMv7
+    s_saida << ".global _start\n";
+    s_saida << "_start:\n";
+    s_saida << "    MOV SP, #0x00800000 @ Inicializa a pilha no topo\n\n";
+
+    // Gera código para cada instrução do programa
+    for (auto filho : arvoreAtribuida->filhos) {
+        s_saida << "    @ --- INSTRUCAO " << s_linhaAtual << " ---\n";
+        gerarCodigo(filho);
+
+        // Salva resultado desta instrução no buffer histórico (para RES)
+        s_saida << "    VPOP {D0} @ Pega o resultado da instrucao\n";
+        s_saida << "    LDR R0, =buffer_resultados\n";
+        s_saida << "    MOV R1, #" << (s_linhaAtual * 8) << "\n";
+        s_saida << "    ADD R0, R0, R1\n";
+        s_saida << "    VSTR.64 D0, [R0] @ Salva no historico\n";
+        s_saida << "    VPUSH {D0}\n\n";
+
+        s_linhaAtual++;
+    }
+
+    s_saida << "fim:\n    B fim\n\n";
+
+    // Seção de dados
+    s_saida << ".data\n";
+    s_saida << ".align 3\n";
+    s_saida << "buffer_resultados: .space 800 @ Buffer para 100 instrucoes\n";
+
+    for (const auto& [nome, _] : s_memorias)
+        s_saida << "var_" << nome << ": .double 0.0\n";
+
+    for (const auto& [label, valor] : s_literais)
+        s_saida << label << ": .double " << valor << "\n";
+
+    s_saida.close();
+    cout << "[ASSEMBLY] Codigo ARMv7 gerado com sucesso: " << nomeArquivo << endl;
+}
