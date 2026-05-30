@@ -1,0 +1,34 @@
+*{ Teste 3 - Combinacao: comentarios + aninhamento profundo
+   + estruturas de controle aninhadas + RES + todos os tipos
+   Este arquivo cobre cenarios complexos e de borda }*
+( START )
+*{ Inicializacao de variaveis de todos os tipos }*
+( 100 TOTAL MEM )
+( 0 ACUM MEM ) *{ acumulador inteiro }*
+( 1.0 TAXA MEM )
+( false PARAR MEM )
+( 10 LIMITE MEM )
+( 1 PASSO MEM )
+*{ Aninhamento nivel 2: (A+B) e (C*D) como operandos de + }*
+( ( ( TOTAL LIMITE + ) ( PASSO 2 * ) + ) TEMP MEM )
+*{ Aninhamento nivel 3: soma de resultado de subexpressoes }*
+( ( ( TOTAL LIMITE - ) ( PASSO TAXA | ) + ) CALC MEM )
+*{ Aninhamento nivel 4: potencia e divisao aninhadas }*
+( ( ( ( 2 3 ^ ) ( LIMITE PASSO / ) + ) ( TAXA 0.5 | ) | ) DEEP MEM )
+*{ Comentario multi-linha
+   descrevendo o proximo bloco
+   que usa RES }*
+( 1 RES )
+( 2 RES )
+*{ IF com condicao bool valida }*
+( ( TOTAL LIMITE > ) ( ( TOTAL PASSO - ) TOTAL MEM ) IF )
+*{ WHILE com condicao bool e acao com MEM }*
+( ( ACUM LIMITE < ) ( ( ACUM PASSO + ) ACUM MEM ) WHILE )
+*{ IF dentro de WHILE — estruturas aninhadas }*
+( ( ACUM TOTAL < ) ( ( ACUM LIMITE > ) ( ( ACUM PASSO - ) ACUM MEM ) IF ) WHILE )
+*{ Operacoes com real }*
+( ( TAXA 2.0 * ) TAXA MEM )
+( ( DEEP TAXA | ) RESULT MEM )
+*{ Expressao final combinando tipos numericos }*
+( ( ( TOTAL ACUM + ) ( RESULT TAXA + ) | ) FINAL MEM )
+( END )

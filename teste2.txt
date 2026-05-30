@@ -1,0 +1,25 @@
+*{ Teste 2 - Erros semanticos intencionais
+   Objetivo: validar que o analisador detecta e reporta
+   corretamente todos os tipos de erros semanticos }*
+( START )
+*{ ERRO 1: uso de variavel X antes de definicao com (V MEM) }*
+( X 5 + )
+*{ Definindo variaveis para os proximos testes }*
+( 10 NUM MEM )
+( 2.5 REAL MEM )
+( true COND MEM )
+*{ ERRO 2: operador % com operando real — exige apenas int }*
+( NUM REAL % )
+*{ ERRO 3: operador / com operando real — exige apenas int }*
+( REAL NUM / )
+*{ ERRO 4: operacao aritmetica com bool }*
+( COND NUM + )
+*{ ERRO 5: condicao de IF nao e bool — e int (usa expr aritmetica) }*
+( ( NUM 1 - ) ( NUM 1 - ) IF )
+*{ ERRO 6: condicao de WHILE nao e bool — e int }*
+( ( NUM 1 + ) ( NUM 1 - ) WHILE )
+*{ ERRO 7: operador relacional com bool }*
+( COND true > )
+*{ Expressao valida para encerrar }*
+( 3 2 + )
+( END )

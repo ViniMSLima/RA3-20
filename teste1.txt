@@ -1,0 +1,26 @@
+*{ Teste 1 - Programa valido completo
+   Cobre: todos os operadores, todos os tipos,
+   comentarios em 3 posicoes, MEM/RES/IF/WHILE,
+   expressoes aninhadas e literais bool }*
+( START )
+*{ Definindo variaveis inteiras }*
+( 10 A MEM )
+( 3 B MEM )
+( 2.5 R MEM ) *{ variavel real }*
+( true FLAG MEM )
+( ( A B + ) C MEM )
+( ( A B - ) D MEM )
+( ( A B * ) E MEM )
+( ( A B / ) F MEM ) *{ divisao inteira: 10/3 = 3 }*
+( ( A B % ) G MEM )
+( ( R 2.0 | ) H MEM ) *{ divisao real }*
+( ( A 2 ^ ) POT MEM ) *{ potencia: 10^2 = 100 }*
+( ( A B > ) COND MEM )
+( ( A B < ) CONDALT MEM ) *{ entre expressoes }*
+( ( B A = ) EQ MEM )
+( ( A 5 > ) ( ( A 1 - ) A MEM ) IF )
+( ( B 0 > ) ( ( B 1 - ) B MEM ) WHILE )
+( ( R 1.5 + ) NESTED MEM )
+( ( ( A C + ) ( B D - ) * ) DEEP MEM )
+( 1 RES )
+( END )
